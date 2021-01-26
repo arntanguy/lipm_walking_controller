@@ -51,6 +51,9 @@ void states::Standing::start()
   auto & supportContact = ctl.supportContact();
   auto & targetContact = ctl.targetContact();
 
+  controller().datastore().remove("Plugin::FSP::Plan");
+  controller().datastore().make<bool>("Plugin::FSP::Request", true);
+
   planChanged_ = false;
   lastInterpolatorIter_ = ctl.planInterpolator.nbIter;
   leftFootRatio_ = ctl.leftFootRatio();
@@ -190,6 +193,20 @@ void states::Standing::checkPlanUpdates()
       LOG_INFO("Current RightFootCenter: " << X_0_rf.translation().transpose())
       ctl.plan.updateInitialTransform(X_0_lf, X_0_rf, 0);
       ctl.plan.rewind();
+ 
+      // TODO : I found that support contact is changing randomly in standing state. To resume walking naturally, please make the contact stable.
+      
+      //LOG_ERROR("current contact : " << ctl.supportContact().surfaceName);
+      
+      // if(ctl.supportContact().surfaceName == "RightFootCenter")
+      // {
+      //   ctl.plan.reset(0); //restart walking on left foot
+      // }
+      // else// if(ctl.supportContact().surfaceName == "LeftFootCenter")
+      // {
+      //   ctl.plan.reset(1); //restart walking on right foot
+      // }
+
       controller().datastore().remove("Plugin::FSP::Plan");
       LOG_ERROR("Standing::Update::FootStepPlan")
     }
