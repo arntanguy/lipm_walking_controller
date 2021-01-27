@@ -48,27 +48,30 @@ void states::Standing::configure(const mc_rtc::Configuration & config)
 void states::Standing::start()
 {
   auto & ctl = controller();
-  auto & supportContact = ctl.supportContact();
-  auto & targetContact = ctl.targetContact();
+  supportContact_ = ctl.supportContact();
+  targetContact_ = ctl.targetContact();
+
+  controller().datastore().remove("Plugin::FSP::Plan");
+  controller().datastore().make<bool>("Plugin::FSP::Request", true);
 
   planChanged_ = false;
   lastInterpolatorIter_ = ctl.planInterpolator.nbIter;
   leftFootRatio_ = ctl.leftFootRatio();
   startWalking_ = startWalking_ || ctl.config()("autoplay", false);
   ctl.isWalking = false;
-  if(supportContact.surfaceName == "RightFootCenter")
+  if(supportContact_.surfaceName == "RightFootCenter")
   {
-    leftFootContact_ = targetContact;
-    rightFootContact_ = supportContact;
+    leftFootContact_ = targetContact_;
+    rightFootContact_ = supportContact_;
   }
-  else if(supportContact.surfaceName == "LeftFootCenter")
+  else if(supportContact_.surfaceName == "LeftFootCenter")
   {
-    leftFootContact_ = supportContact;
-    rightFootContact_ = targetContact;
+    leftFootContact_ = supportContact_;
+    rightFootContact_ = targetContact_;
   }
   else
   {
-    mc_rtc::log::error_and_throw<std::invalid_argument>("Unknown surface name: {}", supportContact.surfaceName);
+    mc_rtc::log::error_and_throw<std::invalid_argument>("Unknown surface name: {}", supportContact_.surfaceName);
   }
 
   if(ctl.isLastDSP())
@@ -117,7 +120,7 @@ void states::Standing::start()
     gui()->addElement({"Walking", "Main"}, ComboInput("Footstep plan", ctl.planInterpolator.availablePlans(),
                                                       [&ctl]() { return ctl.plan.name; },
                                                       [this](const std::string & name) { updatePlan(name); }));
-    gui()->addElement({"Walking", "Main"}, Button((supportContact.id == 0) ? "Start walking" : "Resume walking",
+    gui()->addElement({"Walking", "Main"}, Button((supportContact_.id == 0) ? "Start walking" : "Resume walking",
                                                   [this]() { startWalking(); }));
     gui()->addElement({"Standing"},
                       NumberInput("CoM target [0-1]", [this]() { return std::round(leftFootRatio_ * 10.) / 10.; },
@@ -166,7 +169,7 @@ void states::Standing::runState()
   double K = COM_STIFFNESS;
   double D = 2 * std::sqrt(K);
   Eigen::Vector3d comdd = K * (comTarget - com_i) - D * comd_i;
-  Eigen::Vector3d n = ctl.supportContact().normal();
+  Eigen::Vector3d n = supportContact_.normal();
   double lambda = n.dot(comdd + mc_rtc::constants::gravity) / n.dot(com_i - cop_f);
   Eigen::Vector3d zmp = com_i - (mc_rtc::constants::gravity + comdd) / lambda;
 
@@ -189,7 +192,23 @@ void states::Standing::checkPlanUpdates()
       LOG_INFO("Current LeftFootCenter: " << X_0_lf.translation().transpose())
       LOG_INFO("Current RightFootCenter: " << X_0_rf.translation().transpose())
       ctl.plan.updateInitialTransform(X_0_lf, X_0_rf, 0);
-      ctl.plan.rewind();
+      
+      // I found that support contact is changing randomly in original standing state. 
+      // To resume walking naturally, I memorized the landing foot in start() function.
+      
+      //ctl.plan.rewind(); 
+
+      //LOG_ERROR("current contact : " << supportContact_.surfaceName);
+      
+      if(supportContact_.surfaceName == "RightFootCenter")
+      {
+        ctl.plan.reset(0); //restart walking on left foot
+      }
+      else// if(ctl.supportContact().surfaceName == "LeftFootCenter")
+      {
+        ctl.plan.reset(1); //restart walking on right foot
+      }
+
       controller().datastore().remove("Plugin::FSP::Plan");
       LOG_ERROR("Standing::Update::FootStepPlan")
     }
@@ -237,7 +256,7 @@ bool states::Standing::checkTransitions()
     return false;
   }
 
-  ctl.mpc().contacts(ctl.supportContact(), ctl.targetContact(), ctl.nextContact());
+  ctl.mpc().contacts(supportContact_, targetContact_, ctl.nextContact());
   ctl.mpc().phaseDurations(0., ctl.plan.initDSPDuration(), ctl.singleSupportDuration());
   if(ctl.updatePreview())
   {
