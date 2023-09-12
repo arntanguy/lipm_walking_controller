@@ -36,6 +36,7 @@ void states::Initial::configure(const mc_rtc::Configuration & config)
   config("updateContactFramesToCurrentSurface", updateContactFramesToCurrentSurface_);
   config("resetPosture", resetPosture_);
   config("resetPendulumHeight", resetPendulumHeight_);
+  config_.load(config);
 }
 
 void states::Initial::start()
@@ -47,6 +48,7 @@ void states::Initial::start()
   postureTaskWasActive_ = true;
   startStandingButton_ = false;
   startStanding_ = ctl.config()("autoplay", false);
+  config_("autoplay", startStanding_);
 
   internalReset();
 

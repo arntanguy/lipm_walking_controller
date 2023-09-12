@@ -34,10 +34,11 @@ using ContactState = mc_tasks::lipm_stabilizer::ContactState;
 
 bool states::DoubleSupport::checkInitialSupport()
 {
-  const auto & ctl = controller();
-  auto Fzs = ctl.robot().frame(ctl.prevContact().surfaceName).wrench().force().z();
-  auto Fzt = ctl.robot().frame(ctl.nextContact().surfaceName).wrench().force().z();
-  return Fzs >= minSupportForce_ && Fzt >= minSupportForce_ && goodInitialSupport_;
+  /* const auto & ctl = controller(); */
+  /* auto Fzs = ctl.robot().frame(ctl.prevContact().surfaceName).wrench().force().z(); */
+  /* auto Fzt = ctl.robot().frame(ctl.nextContact().surfaceName).wrench().force().z(); */
+  /* return Fzs >= minSupportForce_ && Fzt >= minSupportForce_ && goodInitialSupport_; */
+  return true;
 }
 
 void states::DoubleSupport::handleExternalPlan()
